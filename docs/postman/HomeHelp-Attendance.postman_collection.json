@@ -1,0 +1,181 @@
+{
+  "info": {
+    "name": "HomeHelp — Attendance",
+    "description": "Geo-fenced check-in/out, household confirmation, attendance calendar.\n\nRequires active bookings. Run Auth, Onboarding, and Bookings collections first.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/v1" },
+    { "key": "household_token", "value": "" },
+    { "key": "helper_token", "value": "" },
+    { "key": "monthly_booking_id", "value": "" },
+    { "key": "attendance_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "Login as Household",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543210\",\n  \"otp\": \"123456\",\n  \"role\": \"household\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) { pm.collectionVariables.set('household_token', json.data.accessToken); }"
+          ]}}]
+        },
+        {
+          "name": "Login as Helper",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543211\",\n  \"otp\": \"123456\",\n  \"role\": \"helper\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) { pm.collectionVariables.set('helper_token', json.data.accessToken); }"
+          ]}}]
+        },
+        {
+          "name": "Get Active Bookings (for booking ID)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/bookings/monthly/active", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "active"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{helper_token}}" }]
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success && json.data.length > 0) {",
+            "    pm.collectionVariables.set('monthly_booking_id', json.data[0].id);",
+            "}"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "Check-in & Check-out",
+      "item": [
+        {
+          "name": "1. Helper Check-in (within geo-fence)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/attendance/check-in", "host": ["{{base_url}}"], "path": ["attendance", "check-in"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"bookingId\": \"{{monthly_booking_id}}\",\n  \"bookingType\": \"monthly\",\n  \"visitNumber\": 1,\n  \"latitude\": 12.9352,\n  \"longitude\": 77.6245\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Check-in successful', function () {",
+            "    pm.response.to.have.status(201);",
+            "    var json = pm.response.json();",
+            "    pm.expect(json.success).to.eql(true);",
+            "    pm.collectionVariables.set('attendance_id', json.data.id);",
+            "    console.log('Within fence:', json.data.isWithinFence);",
+            "    console.log('Distance:', json.data.checkInDistanceM, 'm');",
+            "});"
+          ]}}]
+        },
+        {
+          "name": "2. Helper Check-in (outside geo-fence, needs confirmation)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/attendance/check-in", "host": ["{{base_url}}"], "path": ["attendance", "check-in"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"bookingId\": \"{{monthly_booking_id}}\",\n  \"bookingType\": \"monthly\",\n  \"visitNumber\": 2,\n  \"latitude\": 12.9400,\n  \"longitude\": 77.6300\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) {",
+            "    console.log('Needs household confirmation:', json.data.needsHouseholdConfirmation);",
+            "}"
+          ]}}]
+        },
+        {
+          "name": "3. Household Confirms Attendance",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/attendance/confirm", "host": ["{{base_url}}"], "path": ["attendance", "confirm"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"attendanceId\": \"{{attendance_id}}\",\n  \"confirmed\": true\n}" }
+          }
+        },
+        {
+          "name": "4. Helper Check-out",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/attendance/check-out", "host": ["{{base_url}}"], "path": ["attendance", "check-out"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"attendanceId\": \"{{attendance_id}}\",\n  \"latitude\": 12.9352,\n  \"longitude\": 77.6245\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Calendar & Reports",
+      "item": [
+        {
+          "name": "Get Attendance Calendar (current month)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/attendance/calendar/{{monthly_booking_id}}?type=monthly",
+              "host": ["{{base_url}}"],
+              "path": ["attendance", "calendar", "{{monthly_booking_id}}"],
+              "query": [{ "key": "type", "value": "monthly" }]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        },
+        {
+          "name": "Get Attendance Calendar (specific month)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/attendance/calendar/{{monthly_booking_id}}?type=monthly&month=2026-04",
+              "host": ["{{base_url}}"],
+              "path": ["attendance", "calendar", "{{monthly_booking_id}}"],
+              "query": [
+                { "key": "type", "value": "monthly" },
+                { "key": "month", "value": "2026-04" }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Override Attendance (Admin only)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/attendance/{{attendance_id}}/override", "host": ["{{base_url}}"], "path": ["attendance", "{{attendance_id}}", "override"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer <admin_token>" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"leave\",\n  \"reason\": \"Helper had a medical emergency, marking as leave instead of absent\"\n}" }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,525 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  phone        String   @unique @db.VarChar(15)
+  role         String   @db.VarChar(20)
+  fullName     String?  @map("full_name") @db.VarChar(100)
+  email        String?  @db.VarChar(255)
+  avatarUrl    String?  @map("avatar_url")
+  status       String   @default("active") @db.VarChar(20)
+  languagePref String   @default("en") @map("language_pref") @db.VarChar(10)
+  fcmToken     String?  @map("fcm_token")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  refreshTokens    RefreshToken[]
+  householdProfile HouseholdProfile?
+  helperProfile    HelperProfile?
+  transactionsFrom Transaction[] @relation("TransactionFrom")
+  transactionsTo   Transaction[] @relation("TransactionTo")
+  notifications    Notification[]
+  reviewsGiven     Review[] @relation("ReviewsGiven")
+  reviewsReceived  Review[] @relation("ReviewsReceived")
+
+  @@index([phone])
+  @@index([role])
+  @@map("users")
+}
+
+
+model RefreshToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tokenHash  String   @map("token_hash") @db.VarChar(64)
+  deviceInfo String?  @map("device_info")
+  expiresAt  DateTime @map("expires_at")
+  revoked    Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model HouseholdProfile {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique @map("user_id") @db.Uuid
+  addressLine String   @map("address_line")
+  locality    String   @db.VarChar(100)
+  city        String   @db.VarChar(50)
+  pincode     String   @db.VarChar(10)
+  latitude    Decimal  @db.Decimal(10, 8)
+  longitude   Decimal  @db.Decimal(11, 8)
+  familySize  Int      @default(2) @map("family_size") @db.SmallInt
+  houseType   String?  @map("house_type") @db.VarChar(10)
+  dietaryPref String   @default("veg") @map("dietary_pref") @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyBookings MonthlyBooking[]
+  dailyBookings   DailyBooking[]
+  attendanceLogs      AttendanceLog[]
+  salaryCycles        SalaryCycle[]
+  replacementRequests ReplacementRequest[]
+
+  @@index([locality, city])
+  @@map("household_profiles")
+}
+
+model HelperProfile {
+  id                    String   @id @default(uuid()) @db.Uuid
+  userId                String   @unique @map("user_id") @db.Uuid
+  serviceTypes          String[] @map("service_types")
+  locality              String   @db.VarChar(100)
+  city                  String   @db.VarChar(50)
+  latitude              Decimal  @db.Decimal(10, 8)
+  longitude             Decimal  @db.Decimal(11, 8)
+  serviceRadiusKm       Int      @default(5) @map("service_radius_km") @db.SmallInt
+  experienceYears       Int      @default(0) @map("experience_years") @db.SmallInt
+  languages             String[] @default(["hindi"])
+  bio                   String?
+
+  // Verification
+  aadhaarVerified       Boolean  @default(false) @map("aadhaar_verified")
+  aadhaarNumberHash     String?  @map("aadhaar_number_hash") @db.VarChar(64)
+  aadhaarPhotoUrl       String?  @map("aadhaar_photo_url")
+  policeVerified        Boolean  @default(false) @map("police_verified")
+  verificationStatus    String   @default("pending") @map("verification_status") @db.VarChar(20)
+
+  // Availability flags
+  availableForDaily     Boolean  @default(true) @map("available_for_daily")
+  availableForMonthly   Boolean  @default(true) @map("available_for_monthly")
+  availableForSubstitute Boolean @default(false) @map("available_for_substitute")
+
+  // Reputation
+  reputationScore       Int      @default(0) @map("reputation_score") @db.SmallInt
+  totalRatings          Int      @default(0) @map("total_ratings")
+  avgRating             Decimal  @default(0.0) @map("avg_rating") @db.Decimal(2, 1)
+  tier                  String   @default("new") @db.VarChar(20)
+
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cookPricingProfile CookPricingProfile?
+  availability       HelperAvailability[]
+  monthlyBookings    MonthlyBooking[]
+  dailyBookings      DailyBooking[]
+  attendanceLogs     AttendanceLog[]
+  salaryCycles       SalaryCycle[]
+  leaveRequests      LeaveRequest[]
+  replacementsAsOriginal  ReplacementRequest[] @relation("OriginalHelper")
+  replacementsAsSubstitute ReplacementRequest[] @relation("SubstituteHelper")
+
+  @@index([city, locality])
+  @@index([availableForDaily, availableForMonthly])
+  @@map("helper_profiles")
+}
+
+model CookPricingProfile {
+  id                 String   @id @default(uuid()) @db.Uuid
+  helperId           String   @unique @map("helper_id") @db.Uuid
+  baseMonthlyRate    Int      @map("base_monthly_rate")
+  perExtraMeal       Int      @default(0) @map("per_extra_meal")
+  perExtraVisit      Int      @default(0) @map("per_extra_visit")
+  weekendSurcharge   Int      @default(0) @map("weekend_surcharge")
+  nonVegSurcharge    Int      @default(0) @map("non_veg_surcharge")
+  groceryShoppingAdd Int      @default(0) @map("grocery_shopping_add")
+  familySurcharges   Json     @default("[{\"min_size\":3,\"max_size\":4,\"amount\":1500},{\"min_size\":5,\"max_size\":6,\"amount\":3000},{\"min_size\":7,\"max_size\":null,\"amount\":5000}]") @map("family_surcharges")
+  customSurcharges   Json     @default("[]") @map("custom_surcharges")
+  minAcceptableRate  Int?     @map("min_acceptable_rate")
+
+  // Daily/on-demand
+  perVisitRate       Int?     @map("per_visit_rate")
+  perVisitMaxMeals   Int      @default(2) @map("per_visit_max_meals") @db.SmallInt
+  perVisitMaxPeople  Int      @default(4) @map("per_visit_max_people") @db.SmallInt
+
+  // Cuisine
+  cuisineTags        String[] @default([]) @map("cuisine_tags")
+  specialtyDishes    String[] @default([]) @map("specialty_dishes")
+
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  helper HelperProfile @relation(fields: [helperId], references: [id], onDelete: Cascade)
+
+  @@map("cook_pricing_profiles")
+}
+
+model HelperAvailability {
+  id         String   @id @default(uuid()) @db.Uuid
+  helperId   String   @map("helper_id") @db.Uuid
+  dayOfWeek  Int      @map("day_of_week") @db.SmallInt
+  slotStart  String   @map("slot_start") @db.VarChar(5)
+  slotEnd    String   @map("slot_end") @db.VarChar(5)
+  status     String   @default("available") @db.VarChar(20)
+  bookingId  String?  @map("booking_id") @db.Uuid
+
+  helper HelperProfile @relation(fields: [helperId], references: [id], onDelete: Cascade)
+
+  @@unique([helperId, dayOfWeek, slotStart])
+  @@index([helperId, dayOfWeek, status])
+  @@map("helper_availability")
+}
+
+model MonthlyBooking {
+  id                    String    @id @default(uuid()) @db.Uuid
+  householdId           String    @map("household_id") @db.Uuid
+  helperId              String    @map("helper_id") @db.Uuid
+
+  // Schedule
+  scheduleType          String    @map("schedule_type") @db.VarChar(20) // 'everyday', 'weekdays', 'custom'
+  selectedDays          Int[]     @map("selected_days") @db.SmallInt     // [0,1,2,3,4] for weekdays
+  visits                Json                                              // [{"visit_num":1,"start":"07:00","end":"09:00"}]
+  mealsPerDay           Int       @map("meals_per_day") @db.SmallInt
+  visitsPerDay          Int       @map("visits_per_day") @db.SmallInt
+  familySize            Int       @map("family_size") @db.SmallInt
+  cuisineTags           String[]  @default([]) @map("cuisine_tags")
+  extras                String[]  @default([])                            // ['non_veg', 'grocery_shopping']
+  specialInstructions   String?   @map("special_instructions")
+
+  // Pricing
+  cookListedPrice       Int       @map("cook_listed_price")               // auto-calculated from pricing profile
+  agreedMonthlyRate     Int       @map("agreed_monthly_rate")             // after negotiation
+  platformCommissionPct Int       @default(10) @map("platform_commission_pct") @db.SmallInt
+
+  // Status
+  status                String    @default("pending") @db.VarChar(20)     // pending, trial, active, paused, ended, cancelled
+  trialStartDate        DateTime? @map("trial_start_date") @db.Date
+  trialEndDate          DateTime? @map("trial_end_date") @db.Date
+  startDate             DateTime? @map("start_date") @db.Date
+  endDate               DateTime? @map("end_date") @db.Date
+  pauseReason           String?   @map("pause_reason")
+  endReason             String?   @map("end_reason") @db.VarChar(50)
+
+  // Review cycle
+  nextReviewDate        DateTime? @map("next_review_date") @db.Date
+
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  household      HouseholdProfile @relation(fields: [householdId], references: [id])
+  helper         HelperProfile    @relation(fields: [helperId], references: [id])
+  negotiations       Negotiation[]
+  attendanceLogs     AttendanceLog[]  @relation("MonthlyAttendance")
+  salaryCycles       SalaryCycle[]
+  leaveRequests      LeaveRequest[]
+  replacementRequests ReplacementRequest[]
+
+  @@index([householdId, status])
+  @@index([helperId, status])
+  @@index([status])
+  @@map("monthly_bookings")
+}
+
+model DailyBooking {
+  id                    String    @id @default(uuid()) @db.Uuid
+  householdId           String    @map("household_id") @db.Uuid
+  helperId              String    @map("helper_id") @db.Uuid
+
+  // Schedule
+  bookingDate           DateTime  @map("booking_date") @db.Date
+  visits                Json                                              // same structure as monthly
+
+  // Pricing
+  perVisitRate          Int       @map("per_visit_rate")
+  totalVisits           Int       @map("total_visits") @db.SmallInt
+  totalAmount           Int       @map("total_amount")
+  platformCommissionPct Int       @default(15) @map("platform_commission_pct") @db.SmallInt
+  platformCommissionAmt Int       @map("platform_commission_amt")
+  helperPayout          Int       @map("helper_payout")
+
+  // Status
+  status                String    @default("pending") @db.VarChar(20)     // pending, confirmed, in_progress, completed, cancelled, no_show
+  cancellationBy        String?   @map("cancellation_by") @db.VarChar(20)
+  cancellationReason    String?   @map("cancellation_reason")
+  cancellationFee       Int       @default(0) @map("cancellation_fee")
+
+  // Payment
+  paymentStatus         String    @default("pending") @map("payment_status") @db.VarChar(20)
+  paymentId             String?   @map("payment_id") @db.VarChar(100)
+
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  household      HouseholdProfile @relation(fields: [householdId], references: [id])
+  helper         HelperProfile    @relation(fields: [helperId], references: [id])
+  attendanceLogs AttendanceLog[]  @relation("DailyAttendance")
+
+  @@index([bookingDate, status])
+  @@index([helperId, bookingDate])
+  @@index([householdId, bookingDate])
+  @@map("daily_bookings")
+}
+
+model Negotiation {
+  id               String    @id @default(uuid()) @db.Uuid
+  monthlyBookingId String    @map("monthly_booking_id") @db.Uuid
+  round            Int       @default(1) @db.SmallInt
+  initiatedBy      String    @map("initiated_by") @db.VarChar(20) // 'household', 'helper'
+  proposedRate     Int       @map("proposed_rate")
+  message          String?
+  platformSuggested Json?    @map("platform_suggested")            // {"min": 9500, "max": 13000}
+  withinRange      Boolean?  @map("within_range")
+
+  // Response
+  response         String?   @db.VarChar(20)                       // 'accepted', 'countered', 'declined'
+  counterRate      Int?      @map("counter_rate")
+  counterMessage   String?   @map("counter_message")
+  respondedAt      DateTime? @map("responded_at")
+  expiresAt        DateTime? @map("expires_at")
+
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  monthlyBooking MonthlyBooking @relation(fields: [monthlyBookingId], references: [id], onDelete: Cascade)
+
+  @@index([monthlyBookingId])
+  @@map("negotiations")
+}
+
+model AttendanceLog {
+  id                String    @id @default(uuid()) @db.Uuid
+  monthlyBookingId  String?   @map("monthly_booking_id") @db.Uuid
+  dailyBookingId    String?   @map("daily_booking_id") @db.Uuid
+  bookingType       String    @map("booking_type") @db.VarChar(10) // 'monthly', 'daily'
+  helperId          String    @map("helper_id") @db.Uuid
+  householdId       String    @map("household_id") @db.Uuid
+
+  // Date & visit
+  attendanceDate    DateTime  @map("attendance_date") @db.Date
+  visitNumber       Int       @default(1) @map("visit_number") @db.SmallInt
+
+  // Check-in
+  checkInTime       DateTime? @map("check_in_time")
+  checkInLat        Decimal?  @map("check_in_lat") @db.Decimal(10, 8)
+  checkInLng        Decimal?  @map("check_in_lng") @db.Decimal(11, 8)
+  checkInDistanceM  Int?      @map("check_in_distance_m")
+  checkInMethod     String?   @map("check_in_method") @db.VarChar(20) // 'geo_fence', 'household_confirm', 'manual'
+
+  // Check-out
+  checkOutTime      DateTime? @map("check_out_time")
+  checkOutLat       Decimal?  @map("check_out_lat") @db.Decimal(10, 8)
+  checkOutLng       Decimal?  @map("check_out_lng") @db.Decimal(11, 8)
+  checkOutMethod    String?   @map("check_out_method") @db.VarChar(20)
+
+  // Status
+  status            String    @default("scheduled") @db.VarChar(20) // scheduled, checked_in, completed, absent, late, leave
+  lateByMinutes     Int       @default(0) @map("late_by_minutes") @db.SmallInt
+
+  // Overrides
+  markedBy          String?   @map("marked_by") @db.VarChar(20) // 'system', 'helper', 'household', 'admin'
+  overrideReason    String?   @map("override_reason")
+
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  helper          HelperProfile    @relation(fields: [helperId], references: [id])
+  household       HouseholdProfile @relation(fields: [householdId], references: [id])
+  monthlyBooking  MonthlyBooking?  @relation("MonthlyAttendance", fields: [monthlyBookingId], references: [id])
+  dailyBooking    DailyBooking?    @relation("DailyAttendance", fields: [dailyBookingId], references: [id])
+
+  @@unique([monthlyBookingId, attendanceDate, visitNumber])
+  @@unique([dailyBookingId, attendanceDate, visitNumber])
+  @@index([attendanceDate, status])
+  @@index([helperId, attendanceDate])
+  @@map("attendance_logs")
+}
+
+model SalaryCycle {
+  id                  String    @id @default(uuid()) @db.Uuid
+  monthlyBookingId    String    @map("monthly_booking_id") @db.Uuid
+  helperId            String    @map("helper_id") @db.Uuid
+  householdId         String    @map("household_id") @db.Uuid
+
+  // Cycle period
+  cycleMonth          DateTime  @map("cycle_month") @db.Date // first day of the month
+
+  // Calculation
+  scheduledDays       Int       @map("scheduled_days") @db.SmallInt
+  daysPresent         Int       @map("days_present") @db.SmallInt
+  daysAbsent          Int       @default(0) @map("days_absent") @db.SmallInt
+  daysLate            Int       @default(0) @map("days_late") @db.SmallInt
+  daysLeave           Int       @default(0) @map("days_leave") @db.SmallInt
+
+  grossSalary         Int       @map("gross_salary")
+  deductions          Int       @default(0)
+  bonuses             Int       @default(0)
+  netSalary           Int       @map("net_salary")
+
+  // Platform revenue
+  platformCommission  Int       @map("platform_commission")
+  helperPayout        Int       @map("helper_payout")
+  paymentProcessingFee Int      @map("payment_processing_fee")
+  householdTotal      Int       @map("household_total")
+
+  // Status
+  status              String    @default("draft") @db.VarChar(20)
+  // draft, calculated, household_notified, payment_pending, payment_collected, payout_initiated, payout_completed, failed
+
+  // Cashfree references
+  householdPaymentId  String?   @map("household_payment_id") @db.VarChar(100)
+  helperPayoutId      String?   @map("helper_payout_id") @db.VarChar(100)
+
+  calculatedAt        DateTime? @map("calculated_at")
+  paymentCollectedAt  DateTime? @map("payment_collected_at")
+  payoutCompletedAt   DateTime? @map("payout_completed_at")
+
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  monthlyBooking MonthlyBooking @relation(fields: [monthlyBookingId], references: [id])
+  helper         HelperProfile  @relation(fields: [helperId], references: [id])
+  household      HouseholdProfile @relation(fields: [householdId], references: [id])
+  transactions   Transaction[]
+
+  @@unique([monthlyBookingId, cycleMonth])
+  @@index([cycleMonth, status])
+  @@index([helperId, cycleMonth])
+  @@map("salary_cycles")
+}
+
+model Transaction {
+  id              String    @id @default(uuid()) @db.Uuid
+  type            String    @db.VarChar(30)
+  // daily_booking_payment, monthly_salary_collection, monthly_salary_payout, refund, cancellation_fee
+
+  fromUserId      String?   @map("from_user_id") @db.Uuid
+  toUserId        String?   @map("to_user_id") @db.Uuid
+
+  amount          Int                               // in paisa (100 = ₹1)
+  currency        String    @default("INR") @db.VarChar(3)
+
+  // References
+  monthlyBookingId String?  @map("monthly_booking_id") @db.Uuid
+  dailyBookingId  String?   @map("daily_booking_id") @db.Uuid
+  bookingType     String?   @map("booking_type") @db.VarChar(10)
+  salaryCycleId   String?   @map("salary_cycle_id") @db.Uuid
+
+  // Payment gateway
+  cfOrderId       String?   @map("cf_order_id") @db.VarChar(100)
+  cfPaymentId     String?   @map("cf_payment_id") @db.VarChar(100)
+  cfTransferId    String?   @map("cf_transfer_id") @db.VarChar(100)
+  paymentMethod   String?   @map("payment_method") @db.VarChar(20) // upi, card, wallet, netbanking
+  paymentSessionId String?  @map("payment_session_id") @db.VarChar(200)
+
+  status          String    @default("pending") @db.VarChar(20)
+  // pending, processing, completed, failed, refunded
+  failureReason   String?   @map("failure_reason")
+
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  fromUser        User?     @relation("TransactionFrom", fields: [fromUserId], references: [id])
+  toUser          User?     @relation("TransactionTo", fields: [toUserId], references: [id])
+  salaryCycle     SalaryCycle? @relation(fields: [salaryCycleId], references: [id])
+
+  @@index([fromUserId, createdAt])
+  @@index([status, type])
+  @@index([cfOrderId])
+  @@map("transactions")
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  type      String    @db.VarChar(50)
+  title     String    @db.VarChar(200)
+  body      String
+  data      Json?                                    // deep link data, booking_id, etc.
+  channel   String    @default("push") @db.VarChar(20) // push, sms, in_app, whatsapp
+  priority  String    @default("normal") @db.VarChar(10) // low, normal, high
+  isRead    Boolean   @default(false) @map("is_read")
+  sentAt    DateTime? @map("sent_at")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+model Review {
+  id                String   @id @default(uuid()) @db.Uuid
+  monthlyBookingId  String?  @map("monthly_booking_id") @db.Uuid
+  dailyBookingId    String?  @map("daily_booking_id") @db.Uuid
+  bookingType       String   @map("booking_type") @db.VarChar(10)
+  reviewerId        String   @map("reviewer_id") @db.Uuid
+  revieweeId        String   @map("reviewee_id") @db.Uuid
+  rating            Int      @db.SmallInt
+  punctualityRating Int?     @map("punctuality_rating") @db.SmallInt
+  qualityRating     Int?     @map("quality_rating") @db.SmallInt
+  hygieneRating     Int?     @map("hygiene_rating") @db.SmallInt
+  behaviorRating    Int?     @map("behavior_rating") @db.SmallInt
+  comment           String?
+  isVisible         Boolean  @default(true) @map("is_visible")
+  flagged           Boolean  @default(false)
+  flaggedReason     String?  @map("flagged_reason")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  reviewer User @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewee User @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+
+  @@index([revieweeId, createdAt])
+  @@map("reviews")
+}
+
+model LeaveRequest {
+  id               String     @id @default(uuid()) @db.Uuid
+  helperId         String     @map("helper_id") @db.Uuid
+  bookingId        String     @map("booking_id") @db.Uuid
+  leaveDates       DateTime[] @map("leave_dates") @db.Date
+  reason           String?    @db.VarChar(50)
+  message          String?
+  status           String     @default("pending") @db.VarChar(20)
+  approvedBy       String?    @map("approved_by") @db.VarChar(20)
+  replacementNeeded Boolean   @default(false) @map("replacement_needed")
+  replacementId    String?    @map("replacement_id") @db.Uuid
+  createdAt        DateTime   @default(now()) @map("created_at")
+
+  helper      HelperProfile       @relation(fields: [helperId], references: [id])
+  booking     MonthlyBooking      @relation(fields: [bookingId], references: [id])
+  replacement ReplacementRequest? @relation(fields: [replacementId], references: [id])
+
+  @@map("leave_requests")
+}
+
+model ReplacementRequest {
+  id                  String     @id @default(uuid()) @db.Uuid
+  originalBookingId   String     @map("original_booking_id") @db.Uuid
+  householdId         String     @map("household_id") @db.Uuid
+  originalHelperId    String     @map("original_helper_id") @db.Uuid
+  reason              String     @db.VarChar(30)
+  urgency             String     @default("standard") @db.VarChar(20)
+  replacementDates    DateTime[] @map("replacement_dates") @db.Date
+  visitDetails        Json       @map("visit_details")
+  substituteHelperId  String?    @map("substitute_helper_id") @db.Uuid
+  status              String     @default("open") @db.VarChar(20)
+  requestedAt         DateTime   @default(now()) @map("requested_at")
+  matchedAt           DateTime?  @map("matched_at")
+  fulfilledAt         DateTime?  @map("fulfilled_at")
+  householdRating     Int?       @map("household_rating") @db.SmallInt
+  wantsPermanentSwitch Boolean   @default(false) @map("wants_permanent_switch")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  originalBooking  MonthlyBooking   @relation(fields: [originalBookingId], references: [id])
+  household        HouseholdProfile @relation(fields: [householdId], references: [id])
+  originalHelper   HelperProfile    @relation("OriginalHelper", fields: [originalHelperId], references: [id])
+  substituteHelper HelperProfile?   @relation("SubstituteHelper", fields: [substituteHelperId], references: [id])
+  leaveRequests    LeaveRequest[]
+
+  @@index([status, urgency])
+  @@map("replacement_requests")
+}

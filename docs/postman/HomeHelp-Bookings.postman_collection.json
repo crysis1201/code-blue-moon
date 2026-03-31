@@ -1,0 +1,240 @@
+{
+  "info": {
+    "name": "HomeHelp — Bookings (Monthly & Daily)",
+    "description": "Monthly booking lifecycle (create → negotiate → trial → active → end) and daily on-demand bookings.\n\nRun Auth + Onboarding collections first to create users & profiles.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/v1" },
+    { "key": "household_token", "value": "" },
+    { "key": "helper_token", "value": "" },
+    { "key": "helper_profile_id", "value": "" },
+    { "key": "monthly_booking_id", "value": "" },
+    { "key": "daily_booking_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "Login as Household",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543210\",\n  \"otp\": \"123456\",\n  \"role\": \"household\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) { pm.collectionVariables.set('household_token', json.data.accessToken); }"
+          ]}}]
+        },
+        {
+          "name": "Login as Helper",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543211\",\n  \"otp\": \"123456\",\n  \"role\": \"helper\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) { pm.collectionVariables.set('helper_token', json.data.accessToken); }"
+          ]}}]
+        },
+        {
+          "name": "Get Helper Profile (to get helper_profile_id)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/helper/profile", "host": ["{{base_url}}"], "path": ["helper", "profile"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{helper_token}}" }]
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) { pm.collectionVariables.set('helper_profile_id', json.data.id); }"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "Monthly Booking Lifecycle",
+      "item": [
+        {
+          "name": "1. Create Monthly Booking",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/monthly", "host": ["{{base_url}}"], "path": ["bookings", "monthly"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"helperId\": \"{{helper_profile_id}}\",\n  \"scheduleType\": \"weekdays\",\n  \"visits\": [{\"visit_num\": 1, \"start\": \"07:00\", \"end\": \"09:00\"}],\n  \"mealsPerDay\": 2,\n  \"visitsPerDay\": 1,\n  \"familySize\": 4,\n  \"cuisineTags\": [\"south_indian\", \"north_indian\"],\n  \"extras\": [\"non_veg\"],\n  \"specialInstructions\": \"Please prepare lunch before 1 PM\",\n  \"proposedRate\": 9000\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Booking created', function () {",
+            "    pm.response.to.have.status(201);",
+            "    var json = pm.response.json();",
+            "    pm.collectionVariables.set('monthly_booking_id', json.data.id);",
+            "});"
+          ]}}]
+        },
+        {
+          "name": "2. Get Monthly Booking",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/bookings/monthly/{{monthly_booking_id}}", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "{{monthly_booking_id}}"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        },
+        {
+          "name": "3. Helper Counter-Offer (Negotiate)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/monthly/{{monthly_booking_id}}/negotiate", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "{{monthly_booking_id}}", "negotiate"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"proposedRate\": 10000,\n  \"message\": \"My rate for 2 meals with non-veg is 10000.\"\n}" }
+          }
+        },
+        {
+          "name": "4. Household Counter-Offer",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/monthly/{{monthly_booking_id}}/negotiate", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "{{monthly_booking_id}}", "negotiate"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"proposedRate\": 9500,\n  \"message\": \"Can we settle at 9500?\"\n}" }
+          }
+        },
+        {
+          "name": "5. Helper Accepts",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/monthly/{{monthly_booking_id}}/accept", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "{{monthly_booking_id}}", "accept"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{helper_token}}" }]
+          }
+        },
+        {
+          "name": "6. Start Trial (3 days)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/monthly/{{monthly_booking_id}}/start-trial", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "{{monthly_booking_id}}", "start-trial"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        },
+        {
+          "name": "7. Confirm After Trial → Active",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/monthly/{{monthly_booking_id}}/confirm", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "{{monthly_booking_id}}", "confirm"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        },
+        {
+          "name": "8. Pause Booking",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/monthly/{{monthly_booking_id}}/pause", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "{{monthly_booking_id}}", "pause"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Going on vacation for 2 weeks\"\n}" }
+          }
+        },
+        {
+          "name": "9. Resume Booking",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/monthly/{{monthly_booking_id}}/resume", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "{{monthly_booking_id}}", "resume"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        },
+        {
+          "name": "10. End Booking",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/monthly/{{monthly_booking_id}}/end", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "{{monthly_booking_id}}", "end"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Relocating to another city\"\n}" }
+          }
+        },
+        {
+          "name": "Get Active Monthly Bookings",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/bookings/monthly/active", "host": ["{{base_url}}"], "path": ["bookings", "monthly", "active"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Daily Booking",
+      "item": [
+        {
+          "name": "1. Create Daily Booking",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/daily", "host": ["{{base_url}}"], "path": ["bookings", "daily"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"helperId\": \"{{helper_profile_id}}\",\n  \"bookingDate\": \"2026-04-05\",\n  \"visits\": [{\"visit_num\": 1, \"start\": \"12:00\", \"end\": \"14:00\"}]\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Daily booking created', function () {",
+            "    pm.response.to.have.status(201);",
+            "    var json = pm.response.json();",
+            "    pm.collectionVariables.set('daily_booking_id', json.data.id);",
+            "});"
+          ]}}]
+        },
+        {
+          "name": "2. Get Daily Booking",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/bookings/daily/{{daily_booking_id}}", "host": ["{{base_url}}"], "path": ["bookings", "daily", "{{daily_booking_id}}"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        },
+        {
+          "name": "3. Helper Accepts Daily",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/daily/{{daily_booking_id}}/accept", "host": ["{{base_url}}"], "path": ["bookings", "daily", "{{daily_booking_id}}", "accept"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{helper_token}}" }]
+          }
+        },
+        {
+          "name": "4. Cancel Daily Booking",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/bookings/daily/{{daily_booking_id}}/cancel", "host": ["{{base_url}}"], "path": ["bookings", "daily", "{{daily_booking_id}}", "cancel"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Plans changed\"\n}" }
+          }
+        },
+        {
+          "name": "Get Upcoming Daily Bookings",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/bookings/daily/upcoming", "host": ["{{base_url}}"], "path": ["bookings", "daily", "upcoming"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        }
+      ]
+    }
+  ]
+}

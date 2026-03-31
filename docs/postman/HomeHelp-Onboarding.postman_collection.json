@@ -1,0 +1,228 @@
+{
+  "info": {
+    "name": "HomeHelp — Onboarding & Profiles",
+    "description": "Onboarding, household profile, and helper profile management endpoints.\n\nRun Auth collection first to get tokens.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/v1" },
+    { "key": "household_token", "value": "" },
+    { "key": "helper_token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "Login as Household",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543210\",\n  \"otp\": \"123456\",\n  \"role\": \"household\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) { pm.collectionVariables.set('household_token', json.data.accessToken); }"
+          ]}}]
+        },
+        {
+          "name": "Login as Helper",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543211\",\n  \"otp\": \"123456\",\n  \"role\": \"helper\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) { pm.collectionVariables.set('helper_token', json.data.accessToken); }"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "Onboarding",
+      "item": [
+        {
+          "name": "Create Household Profile",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/onboarding/household", "host": ["{{base_url}}"], "path": ["onboarding", "household"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Rahul Sharma\",\n  \"addressLine\": \"42, 4th Cross, Koramangala 4th Block\",\n  \"locality\": \"Koramangala\",\n  \"city\": \"Bangalore\",\n  \"pincode\": \"560034\",\n  \"latitude\": 12.9352,\n  \"longitude\": 77.6245,\n  \"familySize\": 4,\n  \"houseType\": \"3bhk\",\n  \"dietaryPref\": \"both\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Household profile created', function () {",
+            "    pm.response.to.have.status(201);",
+            "    pm.expect(pm.response.json().success).to.eql(true);",
+            "});"
+          ]}}]
+        },
+        {
+          "name": "Create Helper Profile",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/onboarding/helper", "host": ["{{base_url}}"], "path": ["onboarding", "helper"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Lakshmi Devi\",\n  \"serviceTypes\": [\"cook\"],\n  \"locality\": \"Koramangala\",\n  \"city\": \"Bangalore\",\n  \"latitude\": 12.9340,\n  \"longitude\": 77.6260,\n  \"serviceRadiusKm\": 5,\n  \"experienceYears\": 8,\n  \"languages\": [\"hindi\", \"kannada\", \"english\"],\n  \"bio\": \"Experienced cook specializing in South Indian and North Indian cuisine.\",\n  \"availableForDaily\": true,\n  \"availableForMonthly\": true\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Helper profile created', function () {",
+            "    pm.response.to.have.status(201);",
+            "    pm.expect(pm.response.json().success).to.eql(true);",
+            "});"
+          ]}}]
+        },
+        {
+          "name": "Set Cook Pricing",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "{{base_url}}/onboarding/helper/pricing", "host": ["{{base_url}}"], "path": ["onboarding", "helper", "pricing"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"baseMonthlyRate\": 8000,\n  \"perExtraMeal\": 2000,\n  \"perExtraVisit\": 3000,\n  \"weekendSurcharge\": 1500,\n  \"nonVegSurcharge\": 2000,\n  \"groceryShoppingAdd\": 1000,\n  \"minAcceptableRate\": 7000,\n  \"perVisitRate\": 600,\n  \"cuisineTags\": [\"south_indian\", \"north_indian\"],\n  \"specialtyDishes\": [\"dosa\", \"biryani\", \"sambar\", \"dal\"]\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Cook pricing set', function () {",
+            "    pm.response.to.have.status(200);",
+            "    pm.expect(pm.response.json().success).to.eql(true);",
+            "});"
+          ]}}]
+        },
+        {
+          "name": "Submit Aadhaar Verification",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/onboarding/helper/verification", "host": ["{{base_url}}"], "path": ["onboarding", "helper", "verification"] },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "aadhaarNumber", "value": "123456789012", "type": "text" },
+                { "key": "aadhaarPhoto", "type": "file", "src": "" }
+              ]
+            }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Aadhaar submitted', function () {",
+            "    pm.response.to.have.status(200);",
+            "    var json = pm.response.json();",
+            "    pm.expect(json.data.verificationStatus).to.eql('in_progress');",
+            "});"
+          ]}}]
+        },
+        {
+          "name": "Get Verification Status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/onboarding/helper/verification/status", "host": ["{{base_url}}"], "path": ["onboarding", "helper", "verification", "status"] },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Household Profile",
+      "item": [
+        {
+          "name": "Get Household Profile",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/household/profile", "host": ["{{base_url}}"], "path": ["household", "profile"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        },
+        {
+          "name": "Update Household Profile",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "{{base_url}}/household/profile", "host": ["{{base_url}}"], "path": ["household", "profile"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"familySize\": 5,\n  \"dietaryPref\": \"non_veg\"\n}" }
+          }
+        },
+        {
+          "name": "Get Household Dashboard",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/household/dashboard", "host": ["{{base_url}}"], "path": ["household", "dashboard"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Helper Profile",
+      "item": [
+        {
+          "name": "Get Helper Profile",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/helper/profile", "host": ["{{base_url}}"], "path": ["helper", "profile"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{helper_token}}" }]
+          }
+        },
+        {
+          "name": "Update Helper Profile",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "{{base_url}}/helper/profile", "host": ["{{base_url}}"], "path": ["helper", "profile"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"experienceYears\": 10,\n  \"bio\": \"Experienced cook with 10 years of expertise in South Indian and North Indian cuisine.\"\n}" }
+          }
+        },
+        {
+          "name": "Update Cook Pricing",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "{{base_url}}/helper/pricing", "host": ["{{base_url}}"], "path": ["helper", "pricing"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"baseMonthlyRate\": 9000,\n  \"perExtraMeal\": 2500\n}" }
+          }
+        },
+        {
+          "name": "Get Helper Schedule",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/helper/schedule", "host": ["{{base_url}}"], "path": ["helper", "schedule"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{helper_token}}" }]
+          }
+        },
+        {
+          "name": "Set Helper Availability",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "{{base_url}}/helper/availability", "host": ["{{base_url}}"], "path": ["helper", "availability"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"slots\": [\n    { \"dayOfWeek\": 0, \"slotStart\": \"07:00\", \"slotEnd\": \"09:00\" },\n    { \"dayOfWeek\": 0, \"slotStart\": \"12:00\", \"slotEnd\": \"14:00\" },\n    { \"dayOfWeek\": 1, \"slotStart\": \"07:00\", \"slotEnd\": \"09:00\" },\n    { \"dayOfWeek\": 1, \"slotStart\": \"12:00\", \"slotEnd\": \"14:00\" },\n    { \"dayOfWeek\": 2, \"slotStart\": \"07:00\", \"slotEnd\": \"09:00\" },\n    { \"dayOfWeek\": 2, \"slotStart\": \"12:00\", \"slotEnd\": \"14:00\" },\n    { \"dayOfWeek\": 3, \"slotStart\": \"07:00\", \"slotEnd\": \"09:00\" },\n    { \"dayOfWeek\": 3, \"slotStart\": \"12:00\", \"slotEnd\": \"14:00\" },\n    { \"dayOfWeek\": 4, \"slotStart\": \"07:00\", \"slotEnd\": \"09:00\" },\n    { \"dayOfWeek\": 4, \"slotStart\": \"12:00\", \"slotEnd\": \"14:00\" }\n  ]\n}" }
+          }
+        }
+      ]
+    }
+  ]
+}

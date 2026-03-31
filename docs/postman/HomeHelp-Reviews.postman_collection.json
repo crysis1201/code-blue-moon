@@ -1,0 +1,68 @@
+{
+  "info": {
+    "name": "HomeHelp — Reviews & Reputation",
+    "description": "Submit reviews, view helper reviews, flag inappropriate reviews.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/v1" },
+    { "key": "household_token", "value": "" },
+    { "key": "helper_token", "value": "" },
+    { "key": "monthly_booking_id", "value": "" },
+    { "key": "helper_profile_id", "value": "" },
+    { "key": "review_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "Login as Household",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543210\",\n  \"otp\": \"123456\",\n  \"role\": \"household\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["var json = pm.response.json(); if (json.success) pm.collectionVariables.set('household_token', json.data.accessToken);"] }}]
+        }
+      ]
+    },
+    {
+      "name": "Submit Review (Household reviews Helper)",
+      "request": {
+        "method": "POST",
+        "url": { "raw": "{{base_url}}/reviews", "host": ["{{base_url}}"], "path": ["reviews"] },
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{household_token}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"bookingId\": \"{{monthly_booking_id}}\",\n  \"bookingType\": \"monthly\",\n  \"rating\": 4,\n  \"punctualityRating\": 5,\n  \"qualityRating\": 4,\n  \"hygieneRating\": 4,\n  \"behaviorRating\": 5,\n  \"comment\": \"Great cook! Always on time and food is delicious.\"\n}" }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "var json = pm.response.json();",
+        "if (json.success) pm.collectionVariables.set('review_id', json.data.id);"
+      ]}}]
+    },
+    {
+      "name": "Get Helper Reviews",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{base_url}}/reviews/helper/{{helper_profile_id}}?page=1&limit=10", "host": ["{{base_url}}"], "path": ["reviews", "helper", "{{helper_profile_id}}"], "query": [{"key":"page","value":"1"},{"key":"limit","value":"10"}] },
+        "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+      }
+    },
+    {
+      "name": "Flag Review",
+      "request": {
+        "method": "POST",
+        "url": { "raw": "{{base_url}}/reviews/{{review_id}}/flag", "host": ["{{base_url}}"], "path": ["reviews", "{{review_id}}", "flag"] },
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{household_token}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Contains inappropriate language\"\n}" }
+      }
+    }
+  ]
+}

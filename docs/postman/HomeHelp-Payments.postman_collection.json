@@ -1,0 +1,177 @@
+{
+  "info": {
+    "name": "HomeHelp — Payments",
+    "description": "Salary calculation, payment collection (Cashfree), helper payouts, transaction history.\n\nIn dev mode, Cashfree is mocked — orders return fake session IDs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/v1" },
+    { "key": "household_token", "value": "" },
+    { "key": "helper_token", "value": "" },
+    { "key": "monthly_booking_id", "value": "" },
+    { "key": "daily_booking_id", "value": "" },
+    { "key": "salary_cycle_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "Login as Household",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543210\",\n  \"otp\": \"123456\",\n  \"role\": \"household\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) { pm.collectionVariables.set('household_token', json.data.accessToken); }"
+          ]}}]
+        },
+        {
+          "name": "Login as Helper",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543211\",\n  \"otp\": \"123456\",\n  \"role\": \"helper\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) { pm.collectionVariables.set('helper_token', json.data.accessToken); }"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "Salary",
+      "item": [
+        {
+          "name": "Get Salary Calculation",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments/salary/{{monthly_booking_id}}/2026-04",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "salary", "{{monthly_booking_id}}", "2026-04"]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success && json.data) {",
+            "    pm.collectionVariables.set('salary_cycle_id', json.data.id);",
+            "    console.log('Salary:', json.data.grossSalary, 'Household total:', json.data.householdTotal);",
+            "}"
+          ]}}]
+        },
+        {
+          "name": "Household Pays Salary",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/payments/salary/{{salary_cycle_id}}/pay",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "salary", "{{salary_cycle_id}}", "pay"]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Payment order created', function () {",
+            "    pm.response.to.have.status(200);",
+            "    var json = pm.response.json();",
+            "    console.log('Order ID:', json.data.orderId);",
+            "    console.log('Payment Session:', json.data.paymentSessionId);",
+            "});"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "Daily Booking Payment",
+      "item": [
+        {
+          "name": "Pay for Daily Booking",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/payments/daily/{{daily_booking_id}}/pay",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "daily", "{{daily_booking_id}}", "pay"]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Helper Earnings",
+      "item": [
+        {
+          "name": "Get Earnings Dashboard",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/payments/earnings", "host": ["{{base_url}}"], "path": ["payments", "earnings"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{helper_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transaction History",
+      "item": [
+        {
+          "name": "Get Transaction History (Household)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments/history?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "history"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        },
+        {
+          "name": "Get Transaction History (Helper)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments/history?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "history"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{helper_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Simulate Cashfree Payment Success (Dev)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/payments/webhooks/cashfree", "host": ["{{base_url}}"], "path": ["payments", "webhooks", "cashfree"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-cashfree-signature", "value": "dev" },
+              { "key": "x-cashfree-timestamp", "value": "dev" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"PAYMENT_SUCCESS_WEBHOOK\",\n  \"data\": {\n    \"order\": {\n      \"order_id\": \"<replace_with_order_id>\"\n    },\n    \"payment\": {\n      \"cf_payment_id\": \"dev_cf_123\",\n      \"payment_method\": { \"type\": \"upi\" }\n    }\n  }\n}" }
+          }
+        }
+      ]
+    }
+  ]
+}

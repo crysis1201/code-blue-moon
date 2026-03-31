@@ -1,0 +1,120 @@
+{
+  "info": {
+    "name": "HomeHelp — Leave & Replacements",
+    "description": "Helper leave requests, household approvals, replacement matching.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/v1" },
+    { "key": "household_token", "value": "" },
+    { "key": "helper_token", "value": "" },
+    { "key": "monthly_booking_id", "value": "" },
+    { "key": "leave_id", "value": "" },
+    { "key": "replacement_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "Login as Household",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543210\",\n  \"otp\": \"123456\",\n  \"role\": \"household\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["var json = pm.response.json(); if (json.success) pm.collectionVariables.set('household_token', json.data.accessToken);"] }}]
+        },
+        {
+          "name": "Login as Helper",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/otp/verify", "host": ["{{base_url}}"], "path": ["auth", "otp", "verify"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543211\",\n  \"otp\": \"123456\",\n  \"role\": \"helper\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["var json = pm.response.json(); if (json.success) pm.collectionVariables.set('helper_token', json.data.accessToken);"] }}]
+        }
+      ]
+    },
+    {
+      "name": "Leave",
+      "item": [
+        {
+          "name": "Helper Requests Leave",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/leave/request", "host": ["{{base_url}}"], "path": ["leave", "request"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{helper_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"bookingId\": \"{{monthly_booking_id}}\",\n  \"leaveDates\": [\"2026-04-10\", \"2026-04-11\"],\n  \"reason\": \"personal\",\n  \"message\": \"Family event\",\n  \"replacementNeeded\": true\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) pm.collectionVariables.set('leave_id', json.data.id);"
+          ]}}]
+        },
+        {
+          "name": "Household Approves Leave",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/leave/{{leave_id}}/approve", "host": ["{{base_url}}"], "path": ["leave", "{{leave_id}}", "approve"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"approved\"\n}" }
+          }
+        },
+        {
+          "name": "Get Leave Requests",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/leave/requests", "host": ["{{base_url}}"], "path": ["leave", "requests"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{helper_token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replacements",
+      "item": [
+        {
+          "name": "Request Replacement",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/replacements/request", "host": ["{{base_url}}"], "path": ["replacements", "request"] },
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{household_token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"originalBookingId\": \"{{monthly_booking_id}}\",\n  \"reason\": \"helper_leave\",\n  \"urgency\": \"standard\",\n  \"replacementDates\": [\"2026-04-10\", \"2026-04-11\"],\n  \"visitDetails\": [{\"visit_num\": 1, \"start\": \"07:00\", \"end\": \"09:00\"}]\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success) pm.collectionVariables.set('replacement_id', json.data.id);"
+          ]}}]
+        },
+        {
+          "name": "Find Replacement Matches",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/replacements/{{replacement_id}}/matches", "host": ["{{base_url}}"], "path": ["replacements", "{{replacement_id}}", "matches"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        },
+        {
+          "name": "Get Replacement Status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/replacements/{{replacement_id}}", "host": ["{{base_url}}"], "path": ["replacements", "{{replacement_id}}"] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{household_token}}" }]
+          }
+        }
+      ]
+    }
+  ]
+}

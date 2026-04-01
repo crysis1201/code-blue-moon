@@ -121,6 +121,7 @@ model HelperProfile {
   leaveRequests      LeaveRequest[]
   replacementsAsOriginal  ReplacementRequest[] @relation("OriginalHelper")
   replacementsAsSubstitute ReplacementRequest[] @relation("SubstituteHelper")
+  serviceAreas            HelperServiceArea[]
 
   @@index([city, locality])
   @@index([availableForDaily, availableForMonthly])
@@ -512,6 +513,22 @@ model ServiceArea {
   @@index([city, isActive])
   @@index([zone])
   @@map("service_areas")
+
+  helpers HelperServiceArea[]
+}
+
+model HelperServiceArea {
+  id            String   @id @default(uuid()) @db.Uuid
+  helperId      String   @map("helper_id") @db.Uuid
+  serviceAreaId String   @map("service_area_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  helper      HelperProfile @relation(fields: [helperId], references: [id], onDelete: Cascade)
+  serviceArea ServiceArea   @relation(fields: [serviceAreaId], references: [id], onDelete: Cascade)
+
+  @@unique([helperId, serviceAreaId])
+  @@index([serviceAreaId])
+  @@map("helper_service_areas")
 }
 
 model ReplacementRequest {

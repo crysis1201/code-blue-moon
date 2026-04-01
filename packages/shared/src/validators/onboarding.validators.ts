@@ -25,6 +25,7 @@ export const createHelperProfileSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   serviceRadiusKm: z.number().int().min(1).max(50).optional(),
+  serviceAreaIds: z.array(z.string().uuid()).min(1, 'Select at least one service area').optional(),
   experienceYears: z.number().int().min(0).max(50).optional(),
   languages: z.array(z.string()).min(1).optional(),
   bio: z.string().max(500).optional(),

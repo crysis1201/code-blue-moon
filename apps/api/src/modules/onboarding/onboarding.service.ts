@@ -40,20 +40,32 @@ export async function createHelperProfile(userId: string, input: CreateHelperPro
   const existing = await prisma.helperProfile.findUnique({ where: { userId } });
   if (existing) throw new BadRequestError('Helper profile already exists');
 
-  const { fullName, ...profileData } = input;
+  const { fullName, serviceAreaIds, ...profileData } = input;
 
-  const [profile] = await prisma.$transaction([
-    prisma.helperProfile.create({
+  const [profile] = await prisma.$transaction(async (tx) => {
+    const helperProfile = await tx.helperProfile.create({
       data: {
         userId,
         ...profileData,
       },
-    }),
-    prisma.user.update({
+    });
+
+    await tx.user.update({
       where: { id: userId },
       data: { fullName },
-    }),
-  ]);
+    });
+
+    if (serviceAreaIds && serviceAreaIds.length > 0) {
+      await tx.helperServiceArea.createMany({
+        data: serviceAreaIds.map((serviceAreaId) => ({
+          helperId: helperProfile.id,
+          serviceAreaId,
+        })),
+      });
+    }
+
+    return [helperProfile];
+  });
 
   return profile;
 }

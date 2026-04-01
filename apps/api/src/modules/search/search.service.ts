@@ -44,7 +44,7 @@ interface HelperSearchRow {
 export async function searchHelpers(input: SearchHelpersInput) {
   const {
     service_type, latitude, longitude, radius_km,
-    cuisine, sort_by, page, limit,
+    service_area_id, cuisine, sort_by, page, limit,
   } = input;
 
   const offset = (page - 1) * limit;
@@ -58,6 +58,13 @@ export async function searchHelpers(input: SearchHelpersInput) {
   ];
   const params: (string | number)[] = [latitude, longitude, service_type, radius_km];
   let paramIdx = 5;
+
+  // Service area filter — only show helpers who serve this area
+  if (service_area_id) {
+    conditions.push(`EXISTS (SELECT 1 FROM helper_service_areas hsa WHERE hsa.helper_id = hp.id AND hsa.service_area_id = $${paramIdx}::uuid)`);
+    params.push(service_area_id);
+    paramIdx++;
+  }
 
   // Cuisine filter (for cooks)
   const cuisineList = cuisine ? cuisine.split(',').map((c) => c.trim()) : [];
@@ -204,6 +211,9 @@ export async function getHelperDetail(helperId: string) {
       },
       cookPricingProfile: true,
       availability: { orderBy: [{ dayOfWeek: 'asc' }, { slotStart: 'asc' }] },
+      serviceAreas: {
+        include: { serviceArea: { select: { id: true, name: true, zone: true, pincodes: true } } },
+      },
     },
   });
 

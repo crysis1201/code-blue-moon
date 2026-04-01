@@ -11,6 +11,9 @@ export async function getProfile(userId: string) {
       },
       cookPricingProfile: true,
       availability: { orderBy: [{ dayOfWeek: 'asc' }, { slotStart: 'asc' }] },
+      serviceAreas: {
+        include: { serviceArea: { select: { id: true, name: true, zone: true, pincodes: true } } },
+      },
     },
   });
 
@@ -22,17 +25,32 @@ export async function updateProfile(userId: string, input: UpdateHelperProfileIn
   const existing = await prisma.helperProfile.findUnique({ where: { userId } });
   if (!existing) throw new NotFoundError('Helper profile not found');
 
-  const { fullName, ...profileData } = input;
+  const { fullName, serviceAreaIds, ...profileData } = input;
 
-  const [profile] = await prisma.$transaction([
-    prisma.helperProfile.update({
+  const profile = await prisma.$transaction(async (tx) => {
+    const updated = await tx.helperProfile.update({
       where: { userId },
       data: profileData,
-    }),
-    ...(fullName !== undefined
-      ? [prisma.user.update({ where: { id: userId }, data: { fullName } })]
-      : []),
-  ]);
+    });
+
+    if (fullName !== undefined) {
+      await tx.user.update({ where: { id: userId }, data: { fullName } });
+    }
+
+    if (serviceAreaIds !== undefined) {
+      await tx.helperServiceArea.deleteMany({ where: { helperId: existing.id } });
+      if (serviceAreaIds.length > 0) {
+        await tx.helperServiceArea.createMany({
+          data: serviceAreaIds.map((serviceAreaId) => ({
+            helperId: existing.id,
+            serviceAreaId,
+          })),
+        });
+      }
+    }
+
+    return updated;
+  });
 
   return profile;
 }

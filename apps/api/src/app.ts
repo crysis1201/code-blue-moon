@@ -16,6 +16,7 @@ import { notificationsRouter } from './modules/notifications/index.js';
 import { reviewsRouter } from './modules/reviews/index.js';
 import { leaveRouter, replacementsRouter } from './modules/leave/index.js';
 import { adminRouter } from './modules/admin/index.js';
+import { locationsRouter } from './modules/locations/index.js';
 
 const app: ReturnType<typeof express> = express();
 
@@ -48,6 +49,7 @@ app.use('/v1/reviews', reviewsRouter);
 app.use('/v1/leave', leaveRouter);
 app.use('/v1/replacements', replacementsRouter);
 app.use('/v1/admin', adminRouter);
+app.use('/v1/locations', locationsRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);

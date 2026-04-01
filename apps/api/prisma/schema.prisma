@@ -495,6 +495,25 @@ model LeaveRequest {
   @@map("leave_requests")
 }
 
+model ServiceArea {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(100)        // e.g. "Koramangala", "Indiranagar"
+  zone      String   @db.VarChar(50)         // e.g. "South", "East", "North", "West", "Central"
+  city      String   @default("Bangalore") @db.VarChar(50)
+  state     String   @default("Karnataka") @db.VarChar(50)
+  pincodes  String[]                          // e.g. ["560034", "560095"]
+  latitude  Decimal  @db.Decimal(10, 8)
+  longitude Decimal  @db.Decimal(11, 8)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([name, city])
+  @@index([city, isActive])
+  @@index([zone])
+  @@map("service_areas")
+}
+
 model ReplacementRequest {
   id                  String     @id @default(uuid()) @db.Uuid
   originalBookingId   String     @map("original_booking_id") @db.Uuid

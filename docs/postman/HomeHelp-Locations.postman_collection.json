@@ -1,0 +1,184 @@
+{
+  "info": {
+    "name": "HomeHelp — Locations & Service Areas",
+    "description": "Browse Bangalore service areas, filter by zone, and validate pincodes.\n\nPublic endpoints — no auth required.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/v1" }
+  ],
+  "item": [
+    {
+      "name": "Get All Service Areas",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/locations/areas",
+          "host": ["{{base_url}}"],
+          "path": ["locations", "areas"]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Returns areas list', function () {",
+        "  var json = pm.response.json();",
+        "  pm.expect(json.success).to.be.true;",
+        "  pm.expect(json.data).to.be.an('array');",
+        "  pm.expect(json.data.length).to.be.above(0);",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "Get Areas by Zone — South",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/locations/areas?zone=South",
+          "host": ["{{base_url}}"],
+          "path": ["locations", "areas"],
+          "query": [
+            { "key": "zone", "value": "South" }
+          ]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('All areas are South zone', function () {",
+        "  var json = pm.response.json();",
+        "  pm.expect(json.success).to.be.true;",
+        "  json.data.forEach(function (area) {",
+        "    pm.expect(area.zone).to.equal('South');",
+        "  });",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "Get Areas by Zone — East",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/locations/areas?zone=East",
+          "host": ["{{base_url}}"],
+          "path": ["locations", "areas"],
+          "query": [
+            { "key": "zone", "value": "East" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Areas by Zone — North",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/locations/areas?zone=North",
+          "host": ["{{base_url}}"],
+          "path": ["locations", "areas"],
+          "query": [
+            { "key": "zone", "value": "North" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Areas by Zone — West",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/locations/areas?zone=West",
+          "host": ["{{base_url}}"],
+          "path": ["locations", "areas"],
+          "query": [
+            { "key": "zone", "value": "West" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Areas by Zone — Central",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/locations/areas?zone=Central",
+          "host": ["{{base_url}}"],
+          "path": ["locations", "areas"],
+          "query": [
+            { "key": "zone", "value": "Central" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get All Zones",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/locations/zones",
+          "host": ["{{base_url}}"],
+          "path": ["locations", "zones"]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Returns zone list', function () {",
+        "  var json = pm.response.json();",
+        "  pm.expect(json.success).to.be.true;",
+        "  pm.expect(json.data).to.include.members(['South', 'East', 'North', 'West', 'Central']);",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "Validate Pincode — Serviceable (560034 Koramangala)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/locations/validate-pincode/560034",
+          "host": ["{{base_url}}"],
+          "path": ["locations", "validate-pincode", "560034"]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Pincode is serviceable', function () {",
+        "  var json = pm.response.json();",
+        "  pm.expect(json.success).to.be.true;",
+        "  pm.expect(json.data.isServiceable).to.be.true;",
+        "  pm.expect(json.data.area.name).to.equal('Koramangala');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "Validate Pincode — Serviceable (560038 Indiranagar)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/locations/validate-pincode/560038",
+          "host": ["{{base_url}}"],
+          "path": ["locations", "validate-pincode", "560038"]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Pincode is serviceable', function () {",
+        "  var json = pm.response.json();",
+        "  pm.expect(json.data.isServiceable).to.be.true;",
+        "  pm.expect(json.data.area.name).to.equal('Indiranagar');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "Validate Pincode — Not Serviceable (400001 Mumbai)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/locations/validate-pincode/400001",
+          "host": ["{{base_url}}"],
+          "path": ["locations", "validate-pincode", "400001"]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Pincode is NOT serviceable', function () {",
+        "  var json = pm.response.json();",
+        "  pm.expect(json.success).to.be.true;",
+        "  pm.expect(json.data.isServiceable).to.be.false;",
+        "  pm.expect(json.data.area).to.be.undefined;",
+        "});"
+      ]}}]
+    }
+  ]
+}

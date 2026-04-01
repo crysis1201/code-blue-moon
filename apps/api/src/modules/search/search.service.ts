@@ -74,14 +74,14 @@ export async function searchHelpers(input: SearchHelpersInput) {
     paramIdx++;
   }
 
-  // Budget filter
+  // Budget filter — skip helpers without pricing only when budget is specified
   if (input.budget_min !== undefined) {
-    conditions.push(`COALESCE(cpp.base_monthly_rate, 0) >= $${paramIdx}`);
+    conditions.push(`(cpp.base_monthly_rate IS NULL OR cpp.base_monthly_rate >= $${paramIdx})`);
     params.push(input.budget_min);
     paramIdx++;
   }
   if (input.budget_max !== undefined) {
-    conditions.push(`COALESCE(cpp.base_monthly_rate, 999999) <= $${paramIdx}`);
+    conditions.push(`(cpp.base_monthly_rate IS NULL OR cpp.base_monthly_rate <= $${paramIdx})`);
     params.push(input.budget_max);
     paramIdx++;
   }

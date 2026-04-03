@@ -3,6 +3,18 @@ import { BadRequestError, NotFoundError, ForbiddenError } from '../../common/err
 import { calculateCookPrice } from '../search/price.utils.js';
 import type { CreateMonthlyBookingInput, NegotiateInput, RespondNegotiationInput } from '@homehelp/shared';
 
+const userSelect = { fullName: true, phone: true, avatarUrl: true } as const;
+
+const bookingIncludeList = {
+  household: { include: { user: { select: userSelect } } },
+  helper: { include: { user: { select: userSelect }, cookPricingProfile: true } },
+} as const;
+
+const bookingIncludeDetail = {
+  ...bookingIncludeList,
+  negotiations: { orderBy: { round: 'desc' as const } },
+} as const;
+
 // Valid state transitions
 const STATE_TRANSITIONS: Record<string, string[]> = {
   pending: ['trial', 'cancelled'],
@@ -73,7 +85,7 @@ export async function createMonthlyBooking(userId: string, input: CreateMonthlyB
       agreedMonthlyRate: agreedRate,
       status: 'pending',
     },
-    include: { household: true, helper: true },
+    include: bookingIncludeList,
   });
 
   // If household proposed a different rate, create initial negotiation round
@@ -99,11 +111,7 @@ export async function createMonthlyBooking(userId: string, input: CreateMonthlyB
 export async function getMonthlyBooking(bookingId: string, userId: string) {
   const booking = await prisma.monthlyBooking.findUnique({
     where: { id: bookingId },
-    include: {
-      household: { include: { user: { select: { fullName: true, phone: true } } } },
-      helper: { include: { user: { select: { fullName: true, phone: true } } } },
-      negotiations: { orderBy: { round: 'desc' } },
-    },
+    include: bookingIncludeDetail,
   });
 
   if (!booking) throw new NotFoundError('Booking not found');
@@ -309,10 +317,7 @@ export async function getActiveBookings(userId: string) {
 
   return prisma.monthlyBooking.findMany({
     where,
-    include: {
-      household: { include: { user: { select: { fullName: true } } } },
-      helper: { include: { user: { select: { fullName: true } } } },
-    },
+    include: bookingIncludeList,
     orderBy: { createdAt: 'desc' },
   });
 }

@@ -2,6 +2,13 @@ import { prisma } from '../../config/database.js';
 import { BadRequestError, NotFoundError, ForbiddenError } from '../../common/errors/index.js';
 import type { CreateDailyBookingInput } from '@homehelp/shared';
 
+const userSelect = { fullName: true, phone: true, avatarUrl: true } as const;
+
+const bookingIncludeList = {
+  household: { include: { user: { select: userSelect } } },
+  helper: { include: { user: { select: userSelect }, cookPricingProfile: true } },
+} as const;
+
 export async function createDailyBooking(userId: string, input: CreateDailyBookingInput) {
   const household = await prisma.householdProfile.findUnique({ where: { userId } });
   if (!household) throw new NotFoundError('Household profile not found');
@@ -37,8 +44,7 @@ export async function createDailyBooking(userId: string, input: CreateDailyBooki
       status: 'pending',
     },
     include: {
-      household: { include: { user: { select: { fullName: true } } } },
-      helper: { include: { user: { select: { fullName: true } } } },
+      ...bookingIncludeList,
     },
   });
 }
@@ -47,8 +53,7 @@ export async function getDailyBooking(bookingId: string, userId: string) {
   const booking = await prisma.dailyBooking.findUnique({
     where: { id: bookingId },
     include: {
-      household: { include: { user: { select: { fullName: true, phone: true } } } },
-      helper: { include: { user: { select: { fullName: true, phone: true } } } },
+      ...bookingIncludeList,
     },
   });
 
@@ -132,8 +137,7 @@ export async function getUpcomingDailyBookings(userId: string) {
   return prisma.dailyBooking.findMany({
     where,
     include: {
-      household: { include: { user: { select: { fullName: true } } } },
-      helper: { include: { user: { select: { fullName: true } } } },
+      ...bookingIncludeList,
     },
     orderBy: { bookingDate: 'asc' },
   });

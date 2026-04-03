@@ -3,6 +3,7 @@ import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { redis } from '../../config/redis.js';
 import { RATE_LIMITS } from '@homehelp/shared';
 import { TooManyRequestsError } from '../errors/index.js';
+import { env } from '../../config/env.js';
 
 const globalLimiter = new RateLimiterRedis({
   storeClient: redis,
@@ -19,6 +20,7 @@ const otpLimiterInstance = new RateLimiterRedis({
 });
 
 export async function globalRateLimiter(req: Request, _res: Response, next: NextFunction) {
+  if (env.isDev) return next();
   try {
     await globalLimiter.consume(req.ip ?? 'unknown');
     next();
@@ -28,6 +30,7 @@ export async function globalRateLimiter(req: Request, _res: Response, next: Next
 }
 
 export async function otpRateLimiter(req: Request, _res: Response, next: NextFunction) {
+  if (env.isDev) return next();
   try {
     const phone = req.body?.phone ?? 'unknown';
     await otpLimiterInstance.consume(phone);

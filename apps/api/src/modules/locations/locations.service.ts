@@ -1,7 +1,7 @@
 import { prisma } from '../../config/database.js';
 
 export async function getServiceAreas(zone?: string) {
-  return prisma.serviceArea.findMany({
+  const areas = await prisma.serviceArea.findMany({
     where: {
       isActive: true,
       ...(zone && { zone }),
@@ -14,8 +14,33 @@ export async function getServiceAreas(zone?: string) {
       pincodes: true,
       latitude: true,
       longitude: true,
+      helpers: {
+        select: {
+          helper: {
+            select: {
+              cookPricingProfile: {
+                select: { baseMonthlyRate: true },
+              },
+            },
+          },
+        },
+      },
     },
     orderBy: [{ zone: 'asc' }, { name: 'asc' }],
+  });
+
+  return areas.map(({ helpers, ...area }) => {
+    const rates = helpers
+      .map((h) => h.helper.cookPricingProfile?.baseMonthlyRate)
+      .filter((r): r is number => r != null);
+
+    return {
+      ...area,
+      helperCount: helpers.length,
+      marketRange: rates.length > 0
+        ? { min: Math.min(...rates), max: Math.max(...rates) }
+        : null,
+    };
   });
 }
 

@@ -82,6 +82,7 @@ export async function acceptDailyBooking(bookingId: string, userId: string) {
   return prisma.dailyBooking.update({
     where: { id: bookingId },
     data: { status: 'confirmed' },
+    include: bookingIncludeList,
   });
 }
 
@@ -119,6 +120,7 @@ export async function cancelDailyBooking(bookingId: string, userId: string, reas
       cancellationReason: reason,
       cancellationFee,
     },
+    include: bookingIncludeList,
   });
 }
 

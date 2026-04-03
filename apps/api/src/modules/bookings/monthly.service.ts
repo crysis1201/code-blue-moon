@@ -192,6 +192,7 @@ export async function acceptBooking(bookingId: string, userId: string) {
   return prisma.monthlyBooking.update({
     where: { id: bookingId },
     data: { status: 'pending' }, // stays pending until trial starts
+    include: bookingIncludeDetail,
   });
 }
 
@@ -211,6 +212,7 @@ export async function startTrial(bookingId: string, userId: string) {
       trialStartDate: trialStart,
       trialEndDate: trialEnd,
     },
+    include: bookingIncludeDetail,
   });
 }
 
@@ -236,6 +238,7 @@ export async function confirmBooking(bookingId: string, userId: string) {
       startDate,
       nextReviewDate: nextReview,
     },
+    include: bookingIncludeDetail,
   });
 }
 
@@ -248,6 +251,7 @@ export async function pauseBooking(bookingId: string, userId: string, reason?: s
   return prisma.monthlyBooking.update({
     where: { id: bookingId },
     data: { status: 'paused', pauseReason: reason },
+    include: bookingIncludeDetail,
   });
 }
 
@@ -260,6 +264,7 @@ export async function resumeBooking(bookingId: string, userId: string) {
   return prisma.monthlyBooking.update({
     where: { id: bookingId },
     data: { status: 'active', pauseReason: null },
+    include: bookingIncludeDetail,
   });
 }
 
@@ -285,6 +290,7 @@ export async function endBooking(bookingId: string, userId: string, reason?: str
       endDate: new Date(),
       endReason: endedBy + (reason ? `: ${reason}` : ''),
     },
+    include: bookingIncludeDetail,
   });
 }
 
@@ -303,6 +309,7 @@ export async function cancelBooking(bookingId: string, userId: string, reason?: 
       endDate: new Date(),
       endReason: reason,
     },
+    include: bookingIncludeDetail,
   });
 }
 

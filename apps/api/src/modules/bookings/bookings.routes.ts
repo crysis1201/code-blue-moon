@@ -27,7 +27,7 @@ router.post(
   validate(negotiateSchema),
   ctrl.negotiate,
 );
-router.post('/monthly/:id/accept', authenticate, authorize('helper'), ctrl.acceptBooking);
+router.post('/monthly/:id/accept', authenticate, ctrl.acceptBooking);
 router.post('/monthly/:id/start-trial', authenticate, ctrl.startTrial);
 router.post('/monthly/:id/confirm', authenticate, authorize('household'), ctrl.confirmBooking);
 router.post(

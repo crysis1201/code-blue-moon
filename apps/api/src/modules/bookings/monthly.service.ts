@@ -171,11 +171,14 @@ export async function acceptBooking(bookingId: string, userId: string) {
   if (!booking) throw new NotFoundError('Booking not found');
   if (booking.status !== 'pending') throw new BadRequestError('Booking is not in pending state');
 
-  // Only helper can accept
+  // Either party can accept the other's proposal
+  const household = await prisma.householdProfile.findUnique({ where: { userId } });
   const helper = await prisma.helperProfile.findUnique({ where: { userId } });
-  if (!helper || helper.id !== booking.helperId) {
-    throw new ForbiddenError('Only the assigned helper can accept');
-  }
+
+  let acceptedBy: string;
+  if (household?.id === booking.householdId) acceptedBy = 'household';
+  else if (helper?.id === booking.helperId) acceptedBy = 'helper';
+  else throw new ForbiddenError('You do not have access to this booking');
 
   // Mark latest negotiation as accepted
   const latestNeg = await prisma.negotiation.findFirst({

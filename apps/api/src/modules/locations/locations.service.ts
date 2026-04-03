@@ -1,4 +1,12 @@
 import { prisma } from '../../config/database.js';
+import { calculateCookPrice } from '../search/price.utils.js';
+import type { CookPricingProfile } from '@prisma/client';
+
+// Typical household: 2 meals, 2 visits, family of 2 (min) and 6 (max)
+const MARKET_RANGE_INPUTS = {
+  small: { meals: 2, visitsPerDay: 2, familySize: 2, includeWeekends: false, nonVeg: false, groceryShopping: false },
+  large: { meals: 2, visitsPerDay: 2, familySize: 6, includeWeekends: false, nonVeg: false, groceryShopping: false },
+} as const;
 
 export async function getServiceAreas(zone?: string) {
   const areas = await prisma.serviceArea.findMany({
@@ -18,9 +26,7 @@ export async function getServiceAreas(zone?: string) {
         select: {
           helper: {
             select: {
-              cookPricingProfile: {
-                select: { baseMonthlyRate: true },
-              },
+              cookPricingProfile: true,
             },
           },
         },
@@ -30,16 +36,25 @@ export async function getServiceAreas(zone?: string) {
   });
 
   return areas.map(({ helpers, ...area }) => {
-    const rates = helpers
-      .map((h) => h.helper.cookPricingProfile?.baseMonthlyRate)
-      .filter((r): r is number => r != null);
+    const pricingProfiles = helpers
+      .map((h) => h.helper.cookPricingProfile)
+      .filter((p): p is CookPricingProfile => p != null);
+
+    let marketRange: { min: number; max: number } | null = null;
+
+    if (pricingProfiles.length > 0) {
+      const allPrices: number[] = [];
+      for (const pricing of pricingProfiles) {
+        allPrices.push(calculateCookPrice(MARKET_RANGE_INPUTS.small, pricing));
+        allPrices.push(calculateCookPrice(MARKET_RANGE_INPUTS.large, pricing));
+      }
+      marketRange = { min: Math.min(...allPrices), max: Math.max(...allPrices) };
+    }
 
     return {
       ...area,
       helperCount: helpers.length,
-      marketRange: rates.length > 0
-        ? { min: Math.min(...rates), max: Math.max(...rates) }
-        : null,
+      marketRange,
     };
   });
 }
